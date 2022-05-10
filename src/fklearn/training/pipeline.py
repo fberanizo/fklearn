@@ -1,5 +1,6 @@
 from collections import defaultdict
 from inspect import Parameter, signature
+from time import time
 from typing import Dict
 
 import pandas as pd
@@ -69,16 +70,21 @@ def build_pipeline(*learners: LearnerFnType, has_repeated_learners: bool = False
         fns = []
         logs = []
         pipeline = []
+        pipeline_timing = []
+
         serialisation = defaultdict(list)  # type: dict
 
         for learner in learners:
+            start_time = time()
             learner_fn, new_data, learner_log = learner(current_data)
+            end_time = time()
             # Check for invalid predict fn arguments
             _no_variable_args(learner, learner_fn)
 
             learner_name = learner.__name__
             fns.append(learner_fn)
             pipeline.append(learner_name)
+            pipeline_timing.append((start_time, end_time))
             current_data = new_data
 
             model_objects = {}
@@ -100,6 +106,7 @@ def build_pipeline(*learners: LearnerFnType, has_repeated_learners: bool = False
         serialisation_logs = {k: v if has_repeated_learners else v[-1] for k, v in serialisation.items()}
 
         merged_logs["__fkml__"] = {"pipeline": pipeline,
+                                   "pipeline_timing": pipeline_timing,
                                    "output_columns": list(current_data.columns),
                                    "features": features,
                                    "learners": {**serialisation_logs}}
